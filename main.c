@@ -1,84 +1,117 @@
 #include "dyn_obj.h"
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <string.h>
 
-void test_array_set() {
-    dyn_obj_t *foo = dyn_new_integer(1);
-    dyn_obj_t *array = dyn_new_array(1);
-    
-    dyn_array_set(array, 0, foo);
-    assert(foo->refcount == 2);
+void test_primitives() {
+    printf("Teste Integer und Float... ");
+    dyn_obj_t *my_int = dyn_new_integer(42);
+    dyn_obj_t *my_float = dyn_new_float(3.14f);
 
-    dyn_refcount_dec(array);
-    assert(foo->refcount == 1);
-    
-    dyn_refcount_dec(foo);
+    assert(my_int != NULL);
+    assert(my_int->kind == DYN_INTEGER);
+    assert(my_int->data.v_int == 42);
+    assert(my_int->refcount == 1);
+
+    assert(my_float != NULL);
+    assert(my_float->kind == DYN_FLOAT);
+    assert(my_float->data.v_float == 3.14f); 
+
+    dyn_refcount_dec(my_int);
+    dyn_refcount_dec(my_float);
+    printf("OK!\n");
 }
 
-void test_vector3_refcounting() {
-    dyn_obj_t *x = dyn_new_integer(10);
-    dyn_obj_t *y = dyn_new_integer(20);
-    dyn_obj_t *z = dyn_new_integer(30);
+void test_string() {
+    printf("Teste String (Malloc & Kopie)... ");
+    dyn_obj_t *my_str = dyn_new_string("Hallo Welt");
+
+    assert(my_str != NULL);
+    assert(my_str->kind == DYN_STRING);
+    assert(strcmp(my_str->data.v_string, "Hallo Welt") == 0);
+    assert(my_str->refcount == 1);
+
+    dyn_refcount_dec(my_str);
+    printf("OK!\n");
+}
+
+
+void test_vector() {
+    printf("Teste Vector3 (Adoption von Objekten)... ");
+    dyn_obj_t *x = dyn_new_integer(1);
+    dyn_obj_t *y = dyn_new_integer(2);
+    dyn_obj_t *z = dyn_new_integer(3);
 
     dyn_obj_t *vec = dyn_new_vector3(x, y, z);
-    assert(x->refcount == 2);
     
-    dyn_refcount_dec(vec);
-    
-    assert(x->refcount == 1);
-    assert(y->refcount == 1);
-    assert(z->refcount == 1);
+    assert(vec != NULL);
+    assert(vec->kind == DYN_VECTOR3);
+    assert(x->refcount == 2); 
 
+
+    dyn_refcount_dec(vec);
+    assert(x->refcount == 1);
+    
     dyn_refcount_dec(x);
     dyn_refcount_dec(y);
     dyn_refcount_dec(z);
+    printf("OK!\n");
 }
 
-void test_allocated_string() {
-    dyn_obj_t *str = dyn_new_string("Hello Garbage Collector!");
-    assert(str->refcount == 1);
-    
-    dyn_refcount_inc(str);
-    assert(str->refcount == 2);
+void test_array_logic() {
+    printf("Teste Array (Setzen, Überschreiben, Lesen)... ");
+    dyn_obj_t *arr = dyn_new_array(3);
+    assert(arr != NULL);
+    assert(arr->kind == DYN_ARRAY);
+    assert(arr->data.v_array.size == 3);
 
-    dyn_refcount_dec(str);
-    assert(str->refcount == 1);
+    dyn_obj_t *val1 = dyn_new_integer(100);
+    dyn_obj_t *val2 = dyn_new_integer(200);
+
+
+    assert(dyn_array_set(arr, 0, val1) == true);
+    assert(val1->refcount == 2);
+
+
+    dyn_obj_t *fetched = dyn_array_get(arr, 0);
+    assert(fetched == val1);
+
+    assert(dyn_array_set(arr, 0, val2) == true);
+    assert(val1->refcount == 1); 
+    assert(val2->refcount == 2); 
+
+    assert(dyn_array_set(arr, 99, val1) == false);
+    assert(dyn_array_get(arr, 99) == NULL);
+
+    dyn_refcount_dec(val1);
+    dyn_refcount_dec(val2);
+    dyn_refcount_dec(arr);
+    printf("OK!\n");
+}
+
+void test_manual_refcount() {
+    printf("Teste manuelle Refcount-Kontrolle... ");
+    dyn_obj_t *obj = dyn_new_integer(99);
     
-    dyn_refcount_dec(str);
+    dyn_refcount_inc(obj);
+    assert(obj->refcount == 2);
+    
+    dyn_refcount_dec(obj);
+    assert(obj->refcount == 1);
+    
+    dyn_refcount_dec(obj); 
+    printf("OK!\n");
 }
 
 int main() {
-    printf("Starting Garbage Collector Tests...\n");
+    printf("=== Starte Garbage Collector Tests ===\n\n");
 
-    test_array_set();
-    test_vector3_refcounting();
-    test_allocated_string();
+    test_primitives();
+    test_string();
+    test_vector();
+    test_array_logic();
+    test_manual_refcount();
 
-    printf("SUCCESS: All tests passed perfectly!\n");
+    printf("\n=== ALLE TESTS ERFOLGREICH BESTANDEN! ===\n");
     return 0;
-}
-
-
-void test_deep_nesting() {
-    printf("Starte Deep Nesting (Matroschka) Test...\n");
-
-    dyn_obj_t *str_x = dyn_new_string("X-Achse");
-    dyn_obj_t *str_y = dyn_new_string("Y-Achse");
-    dyn_obj_t *str_z = dyn_new_string("Z-Achse");
-    dyn_obj_t *vec = dyn_new_vector3(str_x, str_y, str_z);
-
-    dyn_obj_t *inner_array = dyn_new_array(1);
-    dyn_array_set(inner_array, 0, vec);
-
-    dyn_obj_t *root_array = dyn_new_array(1);
-    dyn_array_set(root_array, 0, inner_array);
-
-    dyn_refcount_dec(str_x);
-    dyn_refcount_dec(str_y);
-    dyn_refcount_dec(str_z);
-    dyn_refcount_dec(vec);
-    dyn_refcount_dec(inner_array);
-
-    dyn_refcount_dec(root_array); 
 }

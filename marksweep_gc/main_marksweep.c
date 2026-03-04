@@ -119,7 +119,7 @@ int main() {
     test_primitives_gc();
     test_nested_objects_gc();
     test_circular_reference_gc();
-    test_addition_gc(); // Der neue Test
+    test_addition_gc(); 
 
     printf("\n=== ALLE MARK-AND-SWEEP TESTS ERFOLGREICH BESTANDEN! ===\n");
     return 0;

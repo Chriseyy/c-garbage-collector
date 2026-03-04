@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 void test_primitives() {
     printf("Teste Integer und Float... ");
@@ -106,6 +107,53 @@ void test_manual_refcount() {
     printf("OK!\n");
 }
 
+void test_dictionary() {
+    printf("Teste Dictionary (Hash Map, Kollisionen, Memory)... ");
+    dyn_obj_t *dict = dyn_new_dictionary(8);
+    assert(dict != NULL);
+
+    dyn_obj_t *val_name = dyn_new_string("Bob");
+    dyn_obj_t *val_age = dyn_new_integer(25);
+
+    assert(dyn_dict_set(dict, "name", val_name) == true);
+    assert(dyn_dict_set(dict, "age", val_age) == true);
+
+    assert(val_name->refcount == 2); 
+    
+    dyn_obj_t *fetched_name = dyn_dict_get(dict, "name");
+    assert(fetched_name == val_name);
+
+    dyn_obj_t *val_new_age = dyn_new_integer(26);
+    assert(dyn_dict_set(dict, "age", val_new_age) == true);
+    assert(val_age->refcount == 1); 
+
+    dyn_refcount_dec(val_name);
+    dyn_refcount_dec(val_age);
+    dyn_refcount_dec(val_new_age);
+    dyn_refcount_dec(dict);
+
+    printf("OK!\n");
+}
+
+void test_hash_function() {
+    printf("Teste FNV-1a Hash-Funktion... ");
+    
+    uint32_t hash1 = hash_string_fnv1a("Apfel");
+    uint32_t hash2 = hash_string_fnv1a("Apfel");
+    assert(hash1 == hash2);
+
+    uint32_t hash3 = hash_string_fnv1a("Banane");
+    assert(hash1 != hash3);
+
+    uint32_t hash4 = hash_string_fnv1a("apfel");
+    assert(hash1 != hash4);
+    
+    uint32_t hash_empty = hash_string_fnv1a("");
+    assert(hash_empty == 2166136261U);
+
+    printf("OK!\n");
+}
+
 int main() {
     printf("=== Starte Garbage Collector Tests ===\n\n");
 
@@ -113,6 +161,8 @@ int main() {
     test_string();
     test_vector();
     test_array_logic();
+    test_dictionary();
+    test_hash_function();
     test_manual_refcount();
 
     printf("\n=== ALLE TESTS ERFOLGREICH BESTANDEN! ===\n");

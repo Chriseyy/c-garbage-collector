@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 static dyn_obj_t *_new_dyn_object() {
   dyn_obj_t *obj = calloc(1, sizeof(dyn_obj_t));
@@ -42,6 +43,20 @@ void dyn_refcount_free(dyn_obj_t *obj) {
       dyn_refcount_dec(obj->data.v_array.elements[i]);
     }
     free(obj->data.v_array.elements);
+    break;
+  }
+  case DYN_DICTIONARY: {
+    for (size_t i = 0; i < obj->data.v_dict.capacity; i++) {
+      dyn_dict_entry_t *entry = obj->data.v_dict.buckets[i];
+      while (entry != NULL) {
+        dyn_dict_entry_t *next = entry->next;
+        free(entry->key);             
+        dyn_refcount_dec(entry->value); 
+        free(entry);                   
+        entry = next;
+      }
+    }
+    free(obj->data.v_dict.buckets); 
     break;
   }
   default:
@@ -141,4 +156,99 @@ dyn_obj_t *dyn_new_array(size_t size) {
   obj->kind = DYN_ARRAY;
   obj->data.v_array = (dyn_array_t){.size = size, .elements = elements};
   return obj;
+}
+
+static unsigned long hash_string(const char *str) {
+    // DJB2 Hash-Algorithmus
+    unsigned long hash = 5381;
+    int c;
+    while ((c = *str++)) {
+        hash = ((hash << 5) + hash) + c; 
+    }
+    return hash;
+}
+uint32_t hash_string_fnv1a(const char *str) {
+    // FNV-1a Hash-Algorithmus
+    uint32_t hash = 2166136261U; 
+    uint32_t prime = 16777619U;
+
+    while (*str) {
+        hash ^= (unsigned char)(*str);
+        hash *= prime;
+        str++;
+    }
+    
+    return hash;
+}
+
+
+dyn_obj_t *dyn_new_dictionary(size_t capacity) {
+  if (capacity == 0) capacity = 16; 
+
+  dyn_obj_t *obj = _new_dyn_object();
+  if (obj == NULL) return NULL;
+
+  dyn_dict_entry_t **buckets = calloc(capacity, sizeof(dyn_dict_entry_t *));
+  if (buckets == NULL) {
+    free(obj);
+    return NULL;
+  }
+
+  obj->kind = DYN_DICTIONARY;
+  obj->data.v_dict.capacity = capacity;
+  obj->data.v_dict.size = 0;
+  obj->data.v_dict.buckets = buckets;
+  return obj;
+}
+
+bool dyn_dict_set(dyn_obj_t *dict, const char *key, dyn_obj_t *value) {
+  if (dict == NULL || dict->kind != DYN_DICTIONARY || key == NULL || value == NULL) return false;
+
+  size_t index = hash_string(key) % dict->data.v_dict.capacity;
+  dyn_dict_entry_t *entry = dict->data.v_dict.buckets[index];
+
+  while (entry != NULL) {
+    if (strcmp(entry->key, key) == 0) {
+      dyn_refcount_inc(value);
+      dyn_refcount_dec(entry->value);
+      entry->value = value;
+      return true;
+    }
+    entry = entry->next;
+  }
+
+  dyn_dict_entry_t *new_entry = malloc(sizeof(dyn_dict_entry_t));
+  if (new_entry == NULL) return false;
+
+  new_entry->key = malloc(strlen(key) + 1);
+  if (new_entry->key == NULL) {
+    free(new_entry);
+    return false;
+  }
+  strcpy(new_entry->key, key);
+
+  dyn_refcount_inc(value);
+  new_entry->value = value;
+
+  new_entry->next = dict->data.v_dict.buckets[index];
+  dict->data.v_dict.buckets[index] = new_entry;
+  dict->data.v_dict.size++;
+
+  return true;
+}
+
+dyn_obj_t *dyn_dict_get(dyn_obj_t *dict, const char *key) {
+  if (dict == NULL || dict->kind != DYN_DICTIONARY || key == NULL) return NULL;
+
+  size_t index = hash_string(key) % dict->data.v_dict.capacity;
+  dyn_dict_entry_t *entry = dict->data.v_dict.buckets[index];
+
+  while (entry != NULL) {
+    if (strcmp(entry->key, key) == 0) {
+      return entry->value; 
+    }
+    entry = entry->next;
+  }
+
+  return NULL; 
 }

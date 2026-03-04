@@ -96,6 +96,8 @@ dyn_obj_t *dyn_new_float(float value) {
 }
 
 dyn_obj_t *dyn_new_string(const char *value) {
+  if (value == NULL) return NULL;
+
   dyn_obj_t *obj = _new_dyn_object();
   if (obj == NULL) return NULL;
 

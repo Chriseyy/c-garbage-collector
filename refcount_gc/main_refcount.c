@@ -23,15 +23,18 @@ void test_primitives() {
 }
 
 void test_string() {
-    printf("Teste String (Malloc & Kopie)... ");
+    printf("Teste String (Malloc, Kopie & NULL-Check)... ");
+    
     dyn_obj_t *my_str = dyn_new_string("Hallo Welt");
-
     assert(my_str != NULL);
     assert(my_str->kind == DYN_STRING);
     assert(strcmp(my_str->data.v_string, "Hallo Welt") == 0);
     assert(my_str->refcount == 1);
-
     dyn_refcount_dec(my_str);
+
+    dyn_obj_t *null_str = dyn_new_string(NULL);
+    assert(null_str == NULL);
+
     printf("OK!\n");
 }
 

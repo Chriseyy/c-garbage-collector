@@ -113,13 +113,46 @@ void test_addition_gc() {
     printf("OK!\n");
 }
 
+void test_dict_gc() {
+    printf("Teste Dictionary (Hashmap) GC... ");
+    vm_t *vm = vm_new();
+    frame_t *f1 = vm_new_frame(vm);
+
+    dyn_obj_t *dict = dyn_new_dict(vm);
+
+    dyn_obj_t *k1 = dyn_new_string(vm, "name");
+    dyn_obj_t *v1 = dyn_new_string(vm, "C-VM");
+    
+    dyn_obj_t *k2 = dyn_new_string(vm, "version");
+    dyn_obj_t *v2 = dyn_new_integer(vm, 1);
+
+    dyn_dict_set(vm, dict, k1, v1);
+    dyn_dict_set(vm, dict, k2, v2);
+
+    frame_reference_object(f1, dict);
+
+    assert(vm->objects->count == 5);
+
+    vm_collect_garbage(vm);
+    assert(vm->objects->count == 5);
+
+    frame_free(vm_frame_pop(vm));
+    vm_collect_garbage(vm);
+
+    assert(vm->objects->count == 0);
+
+    vm_free(vm);
+    printf("OK!\n");
+}
+
 int main() {
     printf("=== Starte MARK-AND-SWEEP GC Tests ===\n\n");
 
     test_primitives_gc();
     test_nested_objects_gc();
     test_circular_reference_gc();
-    test_addition_gc(); 
+    test_addition_gc();
+    test_dict_gc(); // <-- NEU HINZUGEFÜGT
 
     printf("\n=== ALLE MARK-AND-SWEEP TESTS ERFOLGREICH BESTANDEN! ===\n");
     return 0;

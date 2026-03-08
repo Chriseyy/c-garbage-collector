@@ -2,7 +2,7 @@
 #include "dyn_vm.h"
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdint.h>
 
 dyn_obj_t *_new_dyn_object(vm_t *vm) {
   dyn_obj_t *obj = calloc(1, sizeof(dyn_obj_t));
@@ -73,6 +73,49 @@ dyn_obj_t *dyn_new_array(vm_t *vm, size_t size) {
   return obj;
 }
 
+static uint32_t hash_string(const char* key) {
+    uint32_t hash = 2166136261u;
+    for (int i = 0; key[i] != '\0'; i++) {
+        hash ^= (uint8_t)key[i];
+        hash *= 16777619;
+    }
+    return hash;
+}
+
+dyn_obj_t *dyn_new_dict(vm_t *vm) {
+  dyn_obj_t *obj = _new_dyn_object(vm);
+  if (obj == NULL) return NULL;
+
+  obj->kind = DYN_DICT;
+  obj->data.v_dict.capacity = 8;
+  obj->data.v_dict.count = 0;
+  obj->data.v_dict.entries = calloc(8, sizeof(dyn_dict_entry_t)); 
+  
+  return obj;
+}
+
+bool dyn_dict_set(vm_t *vm, dyn_obj_t *dict, dyn_obj_t *key, dyn_obj_t *value) {
+  if (dict->kind != DYN_DICT || key->kind != DYN_STRING) return false;
+
+  dyn_dict_t *d = &dict->data.v_dict;
+  
+  uint32_t index = hash_string(key->data.v_string) % d->capacity;
+
+  while (d->entries[index].key != NULL) {
+      if (strcmp(d->entries[index].key->data.v_string, key->data.v_string) == 0) {
+          d->entries[index].value = value;
+          return true;
+      }
+      index = (index + 1) % d->capacity; 
+  }
+
+  d->entries[index].key = key;
+  d->entries[index].value = value;
+  d->count++;
+
+  return true;
+}
+
 
 void dyn_obj_free(dyn_obj_t *obj) {
   if (obj == NULL) return;
@@ -88,6 +131,9 @@ void dyn_obj_free(dyn_obj_t *obj) {
     break; 
   case DYN_ARRAY: 
     free(obj->data.v_array.elements); 
+    break;
+  case DYN_DICT:
+    free(obj->data.v_dict.entries);
     break;
   }
   free(obj);

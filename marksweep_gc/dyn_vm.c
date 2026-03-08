@@ -47,6 +47,16 @@ void trace_blacken_object(stack_t *gray_objects, dyn_obj_t *ref) {
     }
     break;
   }
+  case DYN_DICT: {
+    dyn_dict_t *dict = &obj->data.v_dict;
+    for (size_t i = 0; i < dict->capacity; i++) {
+      if (dict->entries[i].key != NULL) {
+        trace_mark_object(gray_objects, dict->entries[i].key);
+        trace_mark_object(gray_objects, dict->entries[i].value);
+      }
+    }
+    break;
+  }
   }
 }
 

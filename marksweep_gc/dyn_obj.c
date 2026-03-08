@@ -93,27 +93,73 @@ dyn_obj_t *dyn_new_dict(vm_t *vm) {
   
   return obj;
 }
+static void resize_dict(dyn_dict_t *dict) {
+    size_t new_capacity = dict->capacity * 2;
+    
+    dyn_dict_entry_t *new_entries = calloc(new_capacity, sizeof(dyn_dict_entry_t));
+
+    for (size_t i = 0; i < dict->capacity; i++) {
+        dyn_dict_entry_t *entry = &dict->entries[i];
+        
+        if (entry->key != NULL) {
+            uint32_t index = hash_string(entry->key->data.v_string) % new_capacity;
+            
+
+            while (new_entries[index].key != NULL) {
+                index = (index + 1) % new_capacity;
+            }
+            
+            new_entries[index] = *entry;
+        }
+    }
+
+    free(dict->entries);
+    dict->entries = new_entries;
+    dict->capacity = new_capacity;
+}
 
 bool dyn_dict_set(vm_t *vm, dyn_obj_t *dict, dyn_obj_t *key, dyn_obj_t *value) {
-  if (dict->kind != DYN_DICT || key->kind != DYN_STRING) return false;
+    if (dict == NULL || key == NULL || dict->kind != DYN_DICT || key->kind != DYN_STRING) return false;
 
-  dyn_dict_t *d = &dict->data.v_dict;
-  
-  uint32_t index = hash_string(key->data.v_string) % d->capacity;
+    dyn_dict_t *d = &dict->data.v_dict;
 
-  while (d->entries[index].key != NULL) {
-      if (strcmp(d->entries[index].key->data.v_string, key->data.v_string) == 0) {
-          d->entries[index].value = value;
-          return true;
-      }
-      index = (index + 1) % d->capacity; 
-  }
+    if (d->count + 1 > (d->capacity * 3) / 4) {
+        resize_dict(d); 
+    }
 
-  d->entries[index].key = key;
-  d->entries[index].value = value;
-  d->count++;
+    uint32_t index = hash_string(key->data.v_string) % d->capacity;
 
-  return true;
+    while (d->entries[index].key != NULL) {
+        if (strcmp(d->entries[index].key->data.v_string, key->data.v_string) == 0) {
+            d->entries[index].value = value;
+            return true; 
+        }
+        index = (index + 1) % d->capacity;
+    }
+
+    d->entries[index].key = key;
+    d->entries[index].value = value;
+    d->count++;
+
+    return true;
+}
+
+dyn_obj_t *dyn_dict_get(dyn_obj_t *dict, dyn_obj_t *key) {
+    if (dict == NULL || key == NULL || dict->kind != DYN_DICT || key->kind != DYN_STRING) return NULL;
+
+    dyn_dict_t *d = &dict->data.v_dict;
+    if (d->count == 0) return NULL; 
+
+    uint32_t index = hash_string(key->data.v_string) % d->capacity;
+
+    while (d->entries[index].key != NULL) {
+        if (strcmp(d->entries[index].key->data.v_string, key->data.v_string) == 0) {
+            return d->entries[index].value; 
+        }
+        index = (index + 1) % d->capacity;
+    }
+
+    return NULL; 
 }
 
 

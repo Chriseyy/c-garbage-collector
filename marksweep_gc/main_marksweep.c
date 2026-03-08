@@ -114,27 +114,46 @@ void test_addition_gc() {
 }
 
 void test_dict_gc() {
-    printf("Teste Dictionary (Hashmap) GC... ");
+    printf("Teste Dictionary GC, Get & Resize... ");
     vm_t *vm = vm_new();
     frame_t *f1 = vm_new_frame(vm);
 
     dyn_obj_t *dict = dyn_new_dict(vm);
+    frame_reference_object(f1, dict); 
 
     dyn_obj_t *k1 = dyn_new_string(vm, "name");
     dyn_obj_t *v1 = dyn_new_string(vm, "C-VM");
-    
+    dyn_dict_set(vm, dict, k1, v1);
+
     dyn_obj_t *k2 = dyn_new_string(vm, "version");
     dyn_obj_t *v2 = dyn_new_integer(vm, 1);
-
-    dyn_dict_set(vm, dict, k1, v1);
     dyn_dict_set(vm, dict, k2, v2);
 
-    frame_reference_object(f1, dict);
+    dyn_obj_t *res1 = dyn_dict_get(dict, k1);
+    assert(res1 != NULL && strcmp(res1->data.v_string, "C-VM") == 0);
 
-    assert(vm->objects->count == 5);
+    dyn_obj_t *res2 = dyn_dict_get(dict, k2);
+    assert(res2 != NULL && res2->data.v_int == 1);
+
+    for (int i = 0; i < 8; i++) {
+        char buf[16];
+        sprintf(buf, "dyn_key_%d", i);
+        dyn_obj_t *k = dyn_new_string(vm, buf);
+        dyn_obj_t *v = dyn_new_integer(vm, i * 100);
+        dyn_dict_set(vm, dict, k, v);
+    }
+
+    assert(dict->data.v_dict.capacity == 16); 
+    assert(dict->data.v_dict.count == 10);    
+
+    dyn_obj_t *res1_after = dyn_dict_get(dict, k1);
+    assert(res1_after != NULL && strcmp(res1_after->data.v_string, "C-VM") == 0);
+
+    assert(vm->objects->count == 21);
 
     vm_collect_garbage(vm);
-    assert(vm->objects->count == 5);
+    
+    assert(vm->objects->count == 21);
 
     frame_free(vm_frame_pop(vm));
     vm_collect_garbage(vm);

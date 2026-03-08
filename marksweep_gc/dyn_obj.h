@@ -64,6 +64,8 @@ dyn_obj_t *dyn_new_dict(vm_t *vm);
 
 
 bool dyn_dict_set(vm_t *vm, dyn_obj_t *dict, dyn_obj_t *key, dyn_obj_t *value);
+dyn_obj_t *dyn_dict_get(dyn_obj_t *dict, dyn_obj_t *key);
+
 void dyn_obj_free(dyn_obj_t *obj);
 bool dyn_array_set(dyn_obj_t *array, size_t index, dyn_obj_t *value);
 dyn_obj_t *dyn_array_get(dyn_obj_t *array, size_t index);
